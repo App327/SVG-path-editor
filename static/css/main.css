@@ -63,8 +63,15 @@ header {
  right: 10px;
 }
 
-.ssh-button * {
- display: inline-block;
+.ssh-buttons md-icon-button {
+ height: 30px;
+ width: 30px;
+ margin-left: 2px;
+ margin-right: 2px;
+}
+
+.ssh-buttons md-icon-button:hover {
+ background: rgb(210, 210, 210);
 }
 
 .ss-content {
@@ -114,10 +121,12 @@ header {
 }
 
 code {
- padding: 5px;
+ margin: 0;
+ padding: 2.5px;
  background: rgb(230, 230, 230);
  color: rgb(70, 70, 70);
  border-radius: 3px;
+ border: 0.1px solid lightgrey;
 }
 
 a {
