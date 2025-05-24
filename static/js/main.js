@@ -1,3 +1,37 @@
+let curVer = '1.1'; // текущая версия
+let curVerCode = 2; // код текущей версии
+
+let updateDialog = document.getElementById('update-dialog');
+
+setTimeout(checkForUpdates, 30);
+
+async function checkForUpdates() {
+ if (!sessionStorage.getItem('update-dialog-closed')) {
+  sessionStorage.setItem('update-dialog-closed', 'false');
+ }
+ if (sessionStorage.getItem('update-dialog-closed') == 'true') {
+  return false;
+ }
+
+ let response = await fetch('https://raw.githubusercontent.com/App327/SVG-path-editor/refs/heads/main/data/versions.json');
+
+ if (response.ok) {
+  let j = await response.json();
+  let vc = Number(j["latest_version_code"]);
+  if (vc > curVerCode) {
+   updateDialog.show();
+  }
+ } else {
+  console.warn('⚠️ Не удалось проверить наличие обновлений.\n\nОшибка HTTP: ' + response.status);
+ }
+}
+
+function closeUpdateDialog() {
+ sessionStorage.setItem('update-dialog-closed', 'true');
+ updateDialog.close();
+}
+
+
 window.onmouseover = function(event) {
  let text = event.target.dataset.tooltip;
  let tooltip = document.getElementsByClassName('tooltip')[0];
@@ -44,6 +78,7 @@ let pathCopyBtn = document.getElementById('path-copy-btn');
 let pathPasteBtn = document.getElementById('path-paste-btn');
 let pathSelectBtn = document.getElementById('path-select-btn');
 let pathClearBtn = document.getElementById('path-clear-btn');
+let pathOptionsBtn = document.getElementById('path-moreopt-btn');
 let outputRefreshBtn = document.getElementById('output-refresh-btn');
 let outputDownloadBtn = document.getElementById('output-download-btn');
 let outputOpenBtn = document.getElementById('output-open-btn');
@@ -57,6 +92,8 @@ let paramStrokeWidth = document.getElementById('param-stroke_width');
 let paramSvgWidth = document.getElementById('param-svg-width');
 let paramSvgHeight = document.getElementById('param-svg-height');
 let paramHighlightCb = document.getElementById('param-highlight-cb');
+let paramHighlightDarkening = document.getElementById('param-highlight-darkening');
+let paramHighlightDarkeningValue = document.getElementById('param-highlight-darkening-value');
 let svgPathInput = document.getElementById('svg-path-input');
 let clearConfirmDialog = document.getElementById('clear-confirm-dialog');
 let pasteConfirmDialog = document.getElementById('paste-confirm-dialog');
@@ -66,12 +103,19 @@ let dataLinkURL = document.getElementById('data-link-open-btn');
 let dataDialogCopyBtn = document.getElementById('data-dialog-copy-btn');
 let resetParamsConfirm = document.getElementById('reset-params-confirm-dialog');
 let resetParamsBtn = document.getElementById('parameters-reset-btn');
-let unsupWarn = document.getElementById('unsupported-warn-dialog');
+let pathSamplesDialog = document.getElementById('path-samples-dialog');
+let pathImportDialog = document.getElementById('path-import-dialog');
+let pathImport2Dialog = document.getElementById('path-import-step2-dialog');
+let pathImport2NSB = document.getElementById('import-step2-btn'); // NSB = Next Step Button
+let pathImport2Fileinp = document.getElementById('import-fileinp');
+let pathImport3Dialog = document.getElementById('path-import-step3-dialog');
+
 
 let pathPaste = '';
 let pathPasteC = false;
 
 let useHightlight = false;
+let highlightDarkening = '230';
 
 let dataLnk = '';
 
@@ -102,6 +146,7 @@ function refreshOutput() {
  if (paramHighlightCb.checked == true) {
   useHighlight = true;
   highlight.style.display = 'block';
+  highlight.setAttribute('fill', 'rgb(' + paramHighlightDarkening.value + ', ' + paramHighlightDarkening.value + ', ' + paramHighlightDarkening.value + ')');
  } else if (paramHighlightCb.checked == false) {
   useHighlight = false;
   highlight.style.display = 'none';
@@ -125,11 +170,25 @@ function refreshParams() {
  } else if (paramStrokeWidthCb.checked == false) {
   paramStrokeWidth.setAttribute('disabled', '');
  }
+ if (paramHighlightCb.checked == true) {
+  paramHighlightDarkening.removeAttribute('disabled');
+ } else if (paramHighlightCb.checked == false) {
+  paramHighlightDarkening.setAttribute('disabled', 'true');
+ }
+ paramHighlightDarkeningValue.innerHTML = paramHighlightDarkening.value;
+ highlightDarkening = paramHighlightDarkening.value;
 }
 
-paramFillCb.onchange = refreshParams;
-paramStrokeCb.onchange = refreshParams;
-paramStrokeWidthCb.onchange = refreshParams;
+function refreshParamsAndOutput() {
+ refreshParams();
+ refreshOutput();
+}
+
+paramFillCb.onchange = refreshParamsAndOutput;
+paramStrokeCb.onchange = refreshParamsAndOutput;
+paramStrokeWidthCb.onchange = refreshParamsAndOutput;
+paramHighlightCb.onchange = refreshParamsAndOutput;
+paramHighlightDarkening.onchange = refreshParamsAndOutput
 
 svgPathInput.oninput = refreshOutput;
 svgPathInput.onchange = refreshOutput;
@@ -174,7 +233,6 @@ function clearPath() {
 function cancelClearPath() {
  clearConfirmDialog.close();
 }
-
 
 function confirmClearPath() {
  let cccb = document.getElementById('clear-copy-cb');
@@ -255,7 +313,7 @@ function downloadOutput() {
   s = '0' + s;
  }
  let dt = d + '_' + mt + '_' + y + '-' + h + '_' + m + '_' + s;
- let filename = 'result-' + dt + '.svg';
+ let filename = 'svg_path-' + dt + '.svg';
  let pathFill = '';
  if (paramFillCb.checked == true) {
   pathFill = ' fill="' + paramFillColor.value + '"';
@@ -271,7 +329,7 @@ function downloadOutput() {
  let pathData = 'd="' + svgPathInput.value + '"' + pathFill + pathStroke + pathStrokeWidth;
  let hl = '';
  if (useHighlight == true) {
-  hl = '    <rect x="0" y="0" width="100%" height="100%" fill="rgb(230, 230, 230)" />\n';
+  hl = '    <rect x="0" y="0" width="100%" height="100%" fill="rgb(' + highlightDarkening + ', ' + highlightDarkening + ', ' + highlightDarkening + ')" />\n';
  }
  let svg_code = ['<?xml version="1.1" encoding="utf-8" ?>\n\n<!DOCTYPE svg>\n<svg height="' + paramSvgHeight.value + '" width="' + paramSvgWidth.value + '" xmlns="http://www.w3.org/2000/svg">\n    <title>SVG path</title>\n\n    <!-- Сгенерировано редактором SVG path -->\n    <!-- GitHub: https://github.com/App327/SVG-path-editor -->\n\n' + hl + '    <path ' + pathData + ' />\n</svg>'];
  let link = document.createElement('a');
@@ -298,7 +356,7 @@ function linkOutput() {
  let pathData = 'd="' + svgPathInput.value + '"' + pathFill + pathStroke + pathStrokeWidth;
  let hl = '';
  if (useHighlight == true) {
-  hl = '    <rect x="0" y="0" width="100%" height="100%" fill="rgb(230, 230, 230)" />\n';
+  hl = '    <rect x="0" y="0" width="100%" height="100%" fill="rgb(' + highlightDarkening + ', ' + highlightDarkening + ', ' + highlightDarkening + ')" />\n';
  }
  let svg_code = ['<?xml version="1.1" encoding="utf-8" ?>\n\n<!DOCTYPE svg>\n<svg height="' + paramSvgHeight.value + '" width="' + paramSvgWidth.value + '" xmlns="http://www.w3.org/2000/svg">\n    <title>SVG path</title>\n\n    <!-- Сгенерировано редактором SVG path -->\n    <!-- GitHub: https://github.com/App327/SVG-path-editor -->\n\n' + hl + '    <path ' + pathData + ' />\n</svg>'];
  let blob = new Blob(svg_code, {type: 'image/svg+xml'});
@@ -317,10 +375,15 @@ function closeDataDialog() {
 
 function copyDataDialog() {
  if ('clipboard' in navigator) {
-  navigator.clipboard.writeText(dataLnk).then(dataDialogCopyBtn.innerHTML = 'Скопировано').catch(() => alert('Не удалось скопировать data URL.'));
+  navigator.clipboard.writeText(dataLnk).then(changeDataCopyBtnText).catch(() => alert('Не удалось скопировать data URL.'));
  } else {
   alert('Ошибка.\n\nNavigator.clipboard не поддерживается в этом браузере/ОС.');
  }
+}
+
+function changeDataCopyBtnText() {
+ dataDialogCopyBtn.innerHTML = 'Скопировано';
+ setTimeout(() => dataDialogCopyBtn.innerHTML = 'Скопировать', 3000);
 }
 
 function openOutput() {
@@ -374,5 +437,168 @@ function resetParams_run() {
 }
 
 window.onbeforeunload = function() {
+ return false;
+}
+
+let pathMO = document.getElementById('path-moreopt-menu');
+pathOptionsBtn.onclick = function() {
+ pathMO.open = !pathMO.open;
+};
+
+function showPathSamples() {
+ pathSamplesDialog.show();
+}
+
+function closePathSamples() {
+ pathSamplesDialog.close();
+}
+
+function pastePathSample(path) {
+ closePathSamples();
+ runPathPaste(path);
+}
+
+function exportPath() {
+ let pathData = {
+  'export_version': '1',
+  'path': svgPathInput.value,
+  'params': {
+   'fill': {
+    'enabled': paramFillCb.checked,
+    'value': paramFillColor.value
+   },
+   'stroke': {
+    'color': {
+     'enabled': paramStrokeCb.checked,
+     'value': paramStrokeColor.value
+    },
+    'width': {
+     'enabled': paramStrokeWidthCb.checked,
+     'value': paramStrokeWidth.value
+    }
+   },
+   'svg_height': paramSvgHeight.value,
+   'svg_width': paramSvgWidth.value,
+   'size_highlight': {
+    'enabled': paramHighlightCb.checked,
+    'darkening': paramHighlightDarkening.value
+   }
+  }
+ };
+ let json = JSON.stringify(pathData);
+ let j = ['' + json + ''];
+ let blob = new Blob(j, {type: 'application/json'});
+ let reader = new FileReader();
+ reader.readAsDataURL(blob);
+ reader.onload = function() {
+  let el = document.createElement('a');
+  el.href = reader.result;
+  let date = new Date();
+  let d = date.getDate();
+  let mt = date.getMonth();
+  mt++;
+  let y = date.getFullYear();
+  let h = date.getHours();
+  let m = date.getMinutes();
+  let s = date.getSeconds();
+  if (d < 10) {
+   d = '0' + d;
+  }
+  if (mt < 10) {
+   mt = '0' + mt;
+  }
+  if (h < 10) {
+   h = '0' + h;
+  }
+  if (m < 10) {
+   m = '0' + m;
+  }
+  if (s < 10) {
+   s = '0' + s;
+  }
+  let dt = d + '_' + mt + '_' + y + '-' + h + '_' + m + '_' + s;
+  el.download = 'svg_path_export-' + dt + '.json';
+  el.click();
+ };
+}
+
+function importPath() {
+ pathImportDialog.show();
+}
+
+function importPath_nextStep() {
+ pathImportDialog.close();
+ pathImport2Fileinp.value = null;
+ pathImport2NSB.style.visibility = 'hidden';
+ pathImport2Dialog.show();
+}
+
+function closePathImportDialog() {
+ pathImportDialog.close();
+}
+
+function closePathImport2Dialog() {
+ pathImport2Dialog.close();
+}
+
+pathImport2Fileinp.onchange = function() {
+ let curFile = pathImport2Fileinp.files[0];
+ if (curFile) {
+  pathImport2NSB.style.visibility = 'visible';
+ } else {
+  pathImport2NSB.style.visibility = 'hidden';
+ }
+}
+
+function importPath_start() {
+ pathImport2Dialog.close();
+ let file = pathImport2Fileinp.files[0];
+ let reader = new FileReader();
+ reader.readAsText(file);
+ reader.onload = function() {
+  let f = reader.result;
+  j = JSON.parse(f);
+  if (j['export_version'] == '1') {
+   svgPathInput.value = j['path'];
+   if (j['params']['fill']['enabled'] == true) {
+    paramFillCb.checked = true;
+   } else {
+    paramFillCb.checked = false;
+   }
+   paramFillColor.value = j['params']['fill']['value'];
+   if (j['params']['stroke']['color']['enabled'] == true) {
+    paramStrokeCb.checked = true;
+   } else {
+    paramStrokeCb.checked = false;
+   }
+   paramStrokeColor.value = j['params']['stroke']['color']['value'];
+   if (j['params']['stroke']['width']['enabled'] == true) {
+    paramStrokeWidthCb.checked = true;
+   } else {
+    paramStrokeWidthCb.checked = false;
+   }
+   paramStrokeWidth.value = j['params']['stroke']['width']['value'];
+   paramSvgWidth.value = j['params']['svg_width'];
+   paramSvgHeight.value = j['params']['svg_height'];
+   if (j['params']['size_highlight']['enabled'] == true) {
+    paramHighlightCb.checked = true;
+   } else {
+    paramHighlightCb.checked = false;
+   }
+   paramHighlightDarkening.value = j['params']['size_highlight']['darkening'];
+   refreshParamsAndOutput();
+  } else {
+   alert('Неподдерживаемая версия экспортного формата: <' + j['export_version'] + '>');
+   return false;
+  }
+ }
+ reader.onerror = function() {
+  alert('Не удаётся прочитать содержимое файла. Ошибка FileReader: [' + reader.error + '].');
   return false;
+ }
+ pathImport3Dialog.show();
+}
+
+function closePathImport3Dialog() {
+ pathImport3Dialog.close();
 }
