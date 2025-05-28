@@ -1,5 +1,5 @@
-let curVer = '1.1'; // текущая версия
-let curVerCode = 2; // код текущей версии
+let curVer = '1.2'; // текущая версия
+let curVerCode = 3; // код текущей версии
 
 let updateDialog = document.getElementById('update-dialog');
 
@@ -19,7 +19,8 @@ async function checkForUpdates() {
   let j = await response.json();
   let vc = Number(j["latest_version_code"]);
   if (vc > curVerCode) {
-   updateDialog.show();
+   updateDialog.style.visibility = 'visible';
+   setTimeout(() => updateDialog.show(), 20);
   }
  } else {
   console.warn('⚠️ Не удалось проверить наличие обновлений.\n\nОшибка HTTP: ' + response.status);
@@ -29,6 +30,7 @@ async function checkForUpdates() {
 function closeUpdateDialog() {
  sessionStorage.setItem('update-dialog-closed', 'true');
  updateDialog.close();
+ setTimeout(() => updateDialog.style.visibility = 'hidden', 100);
 }
 
 
@@ -94,6 +96,8 @@ let paramSvgHeight = document.getElementById('param-svg-height');
 let paramHighlightCb = document.getElementById('param-highlight-cb');
 let paramHighlightDarkening = document.getElementById('param-highlight-darkening');
 let paramHighlightDarkeningValue = document.getElementById('param-highlight-darkening-value');
+let paramGridCb = document.getElementById('param-grid-cb');
+let pathGrid = document.getElementById('path-scgrid');
 let svgPathInput = document.getElementById('svg-path-input');
 let clearConfirmDialog = document.getElementById('clear-confirm-dialog');
 let pasteConfirmDialog = document.getElementById('paste-confirm-dialog');
@@ -115,7 +119,9 @@ let pathPaste = '';
 let pathPasteC = false;
 
 let useHightlight = false;
-let highlightDarkening = '230';
+let highlightDarkening = 230;
+
+let useSCGrid = false;
 
 let dataLnk = '';
 
@@ -151,6 +157,14 @@ function refreshOutput() {
   useHighlight = false;
   highlight.style.display = 'none';
  }
+ if (paramGridCb.checked == true) {
+  useSCGrid = true;
+  pathGrid.style.display = 'block';
+ } else if (paramGridCb.checked == false) {
+  useSCGrid = false;
+  pathGrid.style.display = 'none';
+ }
+ drawPathGrid(paramSvgHeight.value, paramSvgWidth.value);
  svgPath.setAttribute('d', svgPathInput.value);
 }
 
@@ -175,8 +189,13 @@ function refreshParams() {
  } else if (paramHighlightCb.checked == false) {
   paramHighlightDarkening.setAttribute('disabled', 'true');
  }
+ refreshHighlightDarkening();
+}
+
+function refreshHighlightDarkening() {
  paramHighlightDarkeningValue.innerHTML = paramHighlightDarkening.value;
  highlightDarkening = paramHighlightDarkening.value;
+ highlight.setAttribute('fill', 'rgb(' + paramHighlightDarkening.value + ', ' + paramHighlightDarkening.value + ', ' + paramHighlightDarkening.value + ')');
 }
 
 function refreshParamsAndOutput() {
@@ -188,13 +207,31 @@ paramFillCb.onchange = refreshParamsAndOutput;
 paramStrokeCb.onchange = refreshParamsAndOutput;
 paramStrokeWidthCb.onchange = refreshParamsAndOutput;
 paramHighlightCb.onchange = refreshParamsAndOutput;
-paramHighlightDarkening.onchange = refreshParamsAndOutput
+paramHighlightDarkening.onchange = refreshParamsAndOutput;
+paramGridCb.onchange = refreshParamsAndOutput;
 
 svgPathInput.oninput = refreshOutput;
 svgPathInput.onchange = refreshOutput;
 svgPathInput.onfocus = refreshOutput;
 svgPathInput.onblur = refreshOutput;
 svgPathInput.onclick = refreshOutput;
+
+setInterval(refreshHighlightDarkening, 100);
+
+function drawPathGrid() {
+ let g = pathGrid;
+ let h = svg.scrollHeight;
+ let w = svg.scrollWidth;
+ g.innerHTML = '';
+ for (let i = 0; i < w;) {
+  g.innerHTML += '<line x1="' + i + '" x2="' + i + '" y1="0" y2="' + h + '" fill="none" stroke="silver" stroke-width="1px" />';
+  i = i + 10;
+ }
+ for (let i = 0; i < h;) {
+  g.innerHTML += '<line x1="0" x2="' + w + '" y1="' + i + '" y2="' + i + '" fill="none" stroke="silver" stroke-width="1px" />';
+  i = i + 10;
+ }
+}
 
 
 function selectPath() {
@@ -370,7 +407,7 @@ function linkOutput() {
 }
 
 function closeDataDialog() {
-  dataLink.close();
+ dataLink.close();
 }
 
 function copyDataDialog() {
@@ -427,16 +464,19 @@ function resetParams_run() {
  paramStrokeCb.checked = true;
  paramStrokeWidthCb.checked = true;
  paramHighlightCb.checked = false;
+ paramHighlightDarkening.value = 230;
+ paramGridCb.checked = false;
  paramFillColor.value = 'none';
  paramStrokeColor.value = 'dodgerblue';
  paramStrokeWidth.value = '2px';
  paramSvgWidth.value = '200px';
  paramSvgHeight.value = '200px';
- refreshParams();
- refreshOutput();
+ refreshParamsAndOutput();
 }
 
 window.onbeforeunload = function() {
+ // Показываем подтверждение при перезагрузке/закрытии страницы,
+ // чтобы предотвратить случайное удаление введённого path и сброс параметров.
  return false;
 }
 
@@ -460,7 +500,7 @@ function pastePathSample(path) {
 
 function exportPath() {
  let pathData = {
-  'export_version': '1',
+  'export_version': '2',
   'path': svgPathInput.value,
   'params': {
    'fill': {
@@ -479,6 +519,7 @@ function exportPath() {
    },
    'svg_height': paramSvgHeight.value,
    'svg_width': paramSvgWidth.value,
+   'scgrid': paramGridCb.checked, // [НОВОЕ]/[NEW]
    'size_highlight': {
     'enabled': paramHighlightCb.checked,
     'darkening': paramHighlightDarkening.value
@@ -558,7 +599,10 @@ function importPath_start() {
  reader.onload = function() {
   let f = reader.result;
   j = JSON.parse(f);
-  if (j['export_version'] == '1') {
+  if (j['export_version'] == '2' || j['export_version'] == '1') {
+   if (j['export_version'] == '1') {
+    alert('[i] ИНФОРМАЦИЯ\n\nВы используете старую версию экспортного формата (' + j['export_version'] + '). Экспорты из этой версии будут загружаться, но параметр «Сетка размеров и координат», добавленный в последней версии экспортного формата 2, будет установлен как отключённый. Вы можете в любое время включить его в параметрах.');
+   }
    svgPathInput.value = j['path'];
    if (j['params']['fill']['enabled'] == true) {
     paramFillCb.checked = true;
@@ -584,6 +628,11 @@ function importPath_start() {
     paramHighlightCb.checked = true;
    } else {
     paramHighlightCb.checked = false;
+   }
+   if (j['export_version'] == '2') {
+    paramGridCb.checked = j['params']['scgrid']; // scgrid = Sizes & Coordinates Grid
+   } else {
+    paramGridCb.checked = false;
    }
    paramHighlightDarkening.value = j['params']['size_highlight']['darkening'];
    refreshParamsAndOutput();
