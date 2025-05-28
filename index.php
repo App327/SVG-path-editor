@@ -25,7 +25,7 @@ echo '<!DOCTYPE html>
 #al-v {
  position: absolute;
  bottom: 5px;
- right: 5px;
+ right: 10px;
  color: grey;
  user-select: none;
 }
@@ -62,7 +62,7 @@ echo '<!DOCTYPE html>
   <!-- v1.1 -->
   <!-- GitHub: https://github.com/App327/SVG-path-editor -->
 
-  <md-dialog type="alert" id="update-dialog">
+  <md-dialog type="alert" id="update-dialog" style="visibility: hidden;">
    <div slot="headline">Доступно обновление</div>
    <div slot="content">
     <p>Доступно обновление Редактора SVG path.</p>
@@ -117,6 +117,8 @@ echo '<!DOCTYPE html>
    <div class="ss-content">
     <svg width="200px" height="200px" xmlns="http://www.w3.org/2000/svg" id="svg">
      <rect x="0" y="0" width="100%" height="100%" fill="rgb(230, 230, 230)" id="size-hl" style="display: none;" />
+     <g id="path-scgrid" style="display: none;">
+     </g>
      <path d="" fill="none" stroke="dodgerblue" stroke-width="2px" id="svg-path" />
     </svg>
    </div>
@@ -143,6 +145,8 @@ echo '<!DOCTYPE html>
     <hr noshade color="lightgrey" />
     <label><md-checkbox id="param-highlight-cb"></md-checkbox> Подсветка размеров SVG</label><br /><br />
     <label>Затемнённость подложки: <md-slider min="0" max="254" value="230" id="param-highlight-darkening" disabled="false"></md-slider> <span id="param-highlight-darkening-value">230</span></label>
+    <hr noshade color="lightgrey" />
+    <label><md-checkbox id="param-grid-cb"></md-checkbox> Сетка размеров и координат</label>
     <hr noshade color="silver" />
     <md-filled-button onclick="exportPath()"><md-icon slot="icon">upload</md-icon> Экспорт</md-filled-button>
     <md-outlined-button onclick="importPath()"><md-icon slot="icon">download</md-icon> Импорт</md-filled-button>
@@ -269,7 +273,7 @@ echo '<!DOCTYPE html>
   </div>
 
   <div id="app-loader">
-   <p id="al-v">v1.1</p>
+   <p id="al-v">v1.2</p>
    <md-linear-progress value="0.2" id="al-l"></md-linear-progress>
    <md-circular-progress indeterminate id="al-cl"></md-circular-progress>
   </div>
